@@ -28,6 +28,7 @@ import {
 import { store } from "./store";
 
 import resources from "@locales";
+import { Achievement } from "./pages/achievement/achievement";
 
 import "./workers";
 import { RepacksContextProvider } from "./context";
@@ -64,11 +65,12 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               <Route path="/" Component={Home} />
               <Route path="/catalogue" Component={Catalogue} />
               <Route path="/downloads" Component={Downloads} />
-              <Route path="/game/:shop/:objectID" Component={GameDetails} />
+              <Route path="/game/:shop/:objectId" Component={GameDetails} />
               <Route path="/search" Component={SearchResults} />
               <Route path="/settings" Component={Settings} />
               <Route path="/profile/:userId" Component={Profile} />
             </Route>
+            <Route path="/achievement-notification" Component={Achievement} />
           </Routes>
         </HashRouter>
       </RepacksContextProvider>

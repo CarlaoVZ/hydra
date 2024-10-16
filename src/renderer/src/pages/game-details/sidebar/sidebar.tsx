@@ -5,8 +5,9 @@ import { Button } from "@renderer/components";
 
 import * as styles from "./sidebar.css";
 import { gameDetailsContext } from "@renderer/context";
-import { useFormat } from "@renderer/hooks";
+import { useDate, useFormat } from "@renderer/hooks";
 import { DownloadIcon, PeopleIcon } from "@primer/octicons-react";
+import { SPACING_UNIT } from "@renderer/theme.css";
 
 export function Sidebar() {
   const [_howLongToBeat, _setHowLongToBeat] = useState<{
@@ -17,18 +18,20 @@ export function Sidebar() {
   const [activeRequirement, setActiveRequirement] =
     useState<keyof SteamAppDetails["pc_requirements"]>("minimum");
 
-  const { gameTitle, shopDetails, stats } = useContext(gameDetailsContext);
+  const { gameTitle, shopDetails, stats, achievements } =
+    useContext(gameDetailsContext);
 
   const { t } = useTranslation("game_details");
+  const { format } = useDate();
 
   const { numberFormatter } = useFormat();
 
   // useEffect(() => {
-  //   if (objectID) {
+  //   if (objectId) {
   //     setHowLongToBeat({ isLoading: true, data: null });
 
   //     window.electron
-  //       .getHowLongToBeat(objectID, "steam", gameTitle)
+  //       .getHowLongToBeat(objectId, "steam", gameTitle)
   //       .then((howLongToBeat) => {
   //         setHowLongToBeat({ isLoading: false, data: howLongToBeat });
   //       })
@@ -36,7 +39,7 @@ export function Sidebar() {
   //         setHowLongToBeat({ isLoading: false, data: null });
   //       });
   //   }
-  // }, [objectID, gameTitle]);
+  // }, [objectId, gameTitle]);
 
   return (
     <aside className={styles.contentSidebar}>
@@ -44,6 +47,63 @@ export function Sidebar() {
         howLongToBeatData={howLongToBeat.data}
         isLoading={howLongToBeat.isLoading}
       /> */}
+
+      {achievements.length > 0 && (
+        <>
+          <div
+            className={styles.contentSidebarTitle}
+            style={{ border: "none" }}
+          >
+            <h3>
+              {t("achievements")}{" "}
+              <span style={{ fontSize: "12px" }}>
+                ({achievements.filter((a) => a.unlocked).length}/
+                {achievements.length})
+              </span>
+            </h3>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: `${SPACING_UNIT}px`,
+              padding: `${SPACING_UNIT * 2}px`,
+            }}
+          >
+            {achievements.map((achievement, index) => (
+              <div
+                key={index}
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: `${SPACING_UNIT}px`,
+                }}
+                title={achievement.description}
+              >
+                <img
+                  style={{
+                    height: "60px",
+                    width: "60px",
+                    filter: achievement.unlocked ? "none" : "grayscale(100%)",
+                  }}
+                  src={
+                    achievement.unlocked
+                      ? achievement.icon
+                      : achievement.icongray
+                  }
+                  alt={achievement.displayName}
+                  loading="lazy"
+                />
+                <div>
+                  <p>{achievement.displayName}</p>
+                  {achievement.unlockTime && format(achievement.unlockTime)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {stats && (
         <>

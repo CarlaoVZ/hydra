@@ -19,8 +19,9 @@ import { HydraApi } from "./hydra-api";
 
 export class WindowManager {
   public static mainWindow: Electron.BrowserWindow | null = null;
+  public static notificationWindow: Electron.BrowserWindow | null = null;
 
-  private static loadURL(hash = "") {
+  private static loadMainWindowURL(hash = "") {
     // HMR for renderer base on electron-vite cli.
     // Load the remote URL for development or the local html file for production.
     if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
@@ -32,6 +33,21 @@ export class WindowManager {
         path.join(__dirname, "../renderer/index.html"),
         {
           hash,
+        }
+      );
+    }
+  }
+
+  private static loadNotificationWindowURL() {
+    if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+      this.notificationWindow?.loadURL(
+        `${process.env["ELECTRON_RENDERER_URL"]}#/achievement-notification`
+      );
+    } else {
+      this.notificationWindow?.loadFile(
+        path.join(__dirname, "../renderer/index.html"),
+        {
+          hash: "achievement-notification",
         }
       );
     }
@@ -61,7 +77,54 @@ export class WindowManager {
       show: false,
     });
 
-    this.loadURL();
+    this.mainWindow.webContents.session.webRequest.onBeforeSendHeaders(
+      (details, callback) => {
+        callback({
+          requestHeaders: {
+            ...details.requestHeaders,
+            "user-agent":
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+          },
+        });
+      }
+    );
+
+    this.mainWindow.webContents.session.webRequest.onHeadersReceived(
+      (details, callback) => {
+        if (details.webContentsId !== this.mainWindow?.webContents.id) {
+          return callback(details);
+        }
+
+        const headers = {
+          "access-control-allow-origin": ["*"],
+          "access-control-allow-methods": ["GET, POST, PUT, DELETE, OPTIONS"],
+          "access-control-expose-headers": ["ETag"],
+          "access-control-allow-headers": [
+            "Content-Type, Authorization, X-Requested-With, If-None-Match",
+          ],
+        };
+
+        if (details.method === "OPTIONS") {
+          return callback({
+            cancel: false,
+            responseHeaders: {
+              ...details.responseHeaders,
+              ...headers,
+            },
+            statusLine: "HTTP/1.1 200 OK",
+          });
+        }
+
+        return callback({
+          responseHeaders: {
+            ...details.responseHeaders,
+            ...headers,
+          },
+        });
+      }
+    );
+
+    this.loadMainWindowURL();
     this.mainWindow.removeMenu();
 
     this.mainWindow.on("ready-to-show", () => {
@@ -78,7 +141,35 @@ export class WindowManager {
         app.quit();
       }
       WindowManager.mainWindow?.setProgressBar(-1);
+      WindowManager.mainWindow = null;
     });
+  }
+
+  public static createNotificationWindow() {
+    this.notificationWindow = new BrowserWindow({
+      transparent: true,
+      maximizable: false,
+      autoHideMenuBar: true,
+      minimizable: false,
+      focusable: false,
+      skipTaskbar: true,
+      frame: false,
+      width: 350,
+      height: 104,
+      x: 0,
+      y: 0,
+      webPreferences: {
+        preload: path.join(__dirname, "../preload/index.mjs"),
+        sandbox: false,
+      },
+    });
+
+    this.notificationWindow.setIgnoreMouseEvents(true);
+    this.notificationWindow.setVisibleOnAllWorkspaces(true, {
+      visibleOnFullScreen: true,
+    });
+    this.notificationWindow.setAlwaysOnTop(true, "screen-saver", 1);
+    this.loadNotificationWindowURL();
   }
 
   public static openAuthWindow() {
@@ -100,6 +191,8 @@ export class WindowManager {
       });
 
       authWindow.removeMenu();
+
+      if (!app.isPackaged) authWindow.webContents.openDevTools();
 
       const searchParams = new URLSearchParams({
         lng: i18next.language,
@@ -125,14 +218,14 @@ export class WindowManager {
 
   public static redirect(hash: string) {
     if (!this.mainWindow) this.createMainWindow();
-    this.loadURL(hash);
+    this.loadMainWindowURL(hash);
 
     if (this.mainWindow?.isMinimized()) this.mainWindow.restore();
     this.mainWindow?.focus();
   }
 
   public static createSystemTray(language: string) {
-    let tray;
+    let tray: Tray;
 
     if (process.platform === "darwin") {
       const macIcon = nativeImage
